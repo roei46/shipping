@@ -1,0 +1,17 @@
+[project]
+name = "shipping-server"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Roei Baruch",email = "roei.b46@gmail.com"}
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi (>=0.143.0,<0.144.0)",
+    "uvicorn (>=0.54.0,<0.55.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
