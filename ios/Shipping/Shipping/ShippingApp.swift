@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct ShippingApp: App {
     // No server yet — flip to false once EndPoint has a base URL.
-    private static let useMockServer = true
+    private static let useMockServer = false
 
     // Composition root: build dependencies once, hold them, inject down.
     private let keychain: KeychainService
