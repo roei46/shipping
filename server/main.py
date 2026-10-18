@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from typing import Literal
 
@@ -9,6 +10,7 @@ from sqlalchemy import select
 from db import SessionLocal
 from models import Shipment, User
 from security import verify_password
+from worker import prepare_options
 
 app = FastAPI()
 
@@ -86,6 +88,7 @@ def create_shipment(request: ShipmentRequest):
         )
         session.add(shipment)
         session.commit()
+        prepare_options.delay(str(shipment.id))
         return {"requestId": str(shipment.id), "status": shipment.status}
 
 @app.get("/customer/shipments")
@@ -96,3 +99,12 @@ def list_shipments():
             select(Shipment).where(Shipment.user_id == user.id).order_by(Shipment.created_at.desc())
         ).all()
         return {"shipments": [{"requestId": str(s.id), "status": s.status} for s in shipments]}   
+
+@app.get("/customer/shipments/{shipment_id}")
+def get_shipment(shipment_id: uuid.UUID):
+    with SessionLocal() as session:
+        user = session.scalar(select(User).where(User.username == "roei666"))
+        shipment = session.get(Shipment, shipment_id)
+        if shipment is None or shipment.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        return {"requestId": str(shipment.id), "status": shipment.status, "options": []}

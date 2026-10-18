@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str
     jwt_secret: str
     anthropic_api_key: str
+    redis_url: str = "redis://localhost:6379/0"
 
 
 settings = Settings()

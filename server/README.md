@@ -9,7 +9,9 @@ Run all commands from `~/shipping/server`.
 | What | Command |
 |---|---|
 | Start PostgreSQL (only after a Mac restart) | `brew services run postgresql@17` |
+| Start Redis (only after a Mac restart) | `brew services run redis` |
 | Run the server | `poetry run uvicorn main:app --reload` |
+| Run the worker (second terminal) | `poetry run celery -A worker worker --loglevel=info --pool=solo` |
 | Stop the server | Ctrl + C in the server terminal |
 | Test the server | open http://localhost:8000/hello |
 
