@@ -44,12 +44,10 @@ class ShipmentRequest(BaseModel):
     local_trucking_by: Literal["buyer", "seller"]
     incoterms: Literal["EXW", "FCA", "FOB", "CIF", "DAP", "DDP"]
 
-@app.get("/hello")
-def hello():
-    return {"message": "iron maiden"}
+class ApproveRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel)
 
-@app.get("/ironMaiden")
-def ironMaiden(): return {"roei big fan"}
+    option_id: uuid.UUID
 
 @app.post("/customer/login")
 def login(request: LoginRequest):
@@ -108,3 +106,18 @@ def get_shipment(shipment_id: uuid.UUID):
         if shipment is None or shipment.user_id != user.id:
             raise HTTPException(status_code=404, detail="Shipment not found")
         return {"requestId": str(shipment.id), "status": shipment.status, "options": []}
+
+
+@app.post("/customer/shipments/{id}/approve")
+def approve(id: uuid.UUID, request: ApproveRequest):
+    with SessionLocal() as session:
+        user = session.scalar(select(User).where(User.username == "roei666"))
+        shipment = session.get(Shipment, id)
+        if shipment is None or shipment.user_id != user.id:
+                raise HTTPException(status_code=404, detail="Shipment not found")
+        if shipment.status != "options_ready":
+            raise HTTPException(status_code=409, detail="Shipment is not waiting for approval")
+
+        shipment.status = "approved"
+        session.commit()
+        return {"requestId": str(shipment.id), "status": shipment.status}
