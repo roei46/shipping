@@ -1,18 +1,14 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import select
-
-from db import SessionLocal
-from models import User
-from security import verify_password
-
 from datetime import date
 from typing import Literal
 
-from pydantic import ConfigDict, Field
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from sqlalchemy import select
 
-from models import Shipment
+from db import SessionLocal
+from models import Shipment, User
+from security import verify_password
 
 app = FastAPI()
 
@@ -91,3 +87,12 @@ def create_shipment(request: ShipmentRequest):
         session.add(shipment)
         session.commit()
         return {"requestId": str(shipment.id), "status": shipment.status}
+
+@app.get("/customer/shipments")
+def list_shipments():
+     with SessionLocal() as session:
+        user = session.scalar(select(User).where(User.username == "roei666"))
+        shipments = session.scalars(
+            select(Shipment).where(Shipment.user_id == user.id).order_by(Shipment.created_at.desc())
+        ).all()
+        return {"shipments": [{"requestId": str(s.id), "status": s.status} for s in shipments]}   
