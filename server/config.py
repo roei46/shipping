@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     jwt_secret: str
     anthropic_api_key: str
     redis_url: str = "redis://localhost:6379/0"
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"
 
 
 settings = Settings()

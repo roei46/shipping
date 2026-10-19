@@ -10,7 +10,10 @@ from sqlalchemy import select
 from db import SessionLocal
 from models import Option, Shipment, User
 from security import verify_password
+from sentry_setup import init_sentry
 from worker import prepare_options
+
+init_sentry()
 
 app = FastAPI()
 

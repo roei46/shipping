@@ -1,6 +1,6 @@
 import uuid
 
-from celery import Celery
+from celery import Celery, signals
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from config import settings
@@ -8,8 +8,14 @@ from db import SessionLocal
 from forwarders import FORWARDERS, ForwarderError
 from llm import plan_shipment
 from models import Option, Shipment
+from sentry_setup import init_sentry
 
 celery_app = Celery("shipping", broker=settings.redis_url)
+
+
+@signals.celeryd_init.connect
+def start_sentry(**kwargs):
+    init_sentry()
 
 
 @retry(
