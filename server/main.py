@@ -1,21 +1,25 @@
 import uuid
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException
+import jwt
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 
+from config import settings
 from db import SessionLocal
 from models import Option, Shipment, User
-from security import verify_password
+from security import create_token, verify_password
 from sentry_setup import init_sentry
 from worker import prepare_options
 
 init_sentry()
 
 app = FastAPI()
+bearer = HTTPBearer(auto_error=False)
 
 class LoginRequest(BaseModel):
     username: str
@@ -52,6 +56,26 @@ class ApproveRequest(BaseModel):
 
     option_id: uuid.UUID
 
+
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> User:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Missing token")
+    try:
+        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=["HS256"])
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    with SessionLocal() as session:
+        user = session.get(User, uuid.UUID(payload["sub"]))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
 @app.post("/customer/login")
 def login(request: LoginRequest):
     print("login attempt:", request.username)
@@ -62,12 +86,11 @@ def login(request: LoginRequest):
     if user is None or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Wrong username or password")
 
-    return {"token": "not-yet"}
+    return {"token": create_token(str(user.id))}
 
 @app.post("/customer/shipments", status_code=201)
-def create_shipment(request: ShipmentRequest):
+def create_shipment(request: ShipmentRequest, user: CurrentUser):
     with SessionLocal() as session:
-        user = session.scalar(select(User).where(User.username == "roei666"))
         shipment = Shipment(
             user_id=user.id,
             quantity=request.quantity,
@@ -93,22 +116,20 @@ def create_shipment(request: ShipmentRequest):
         return {"requestId": str(shipment.id), "status": shipment.status}
 
 @app.get("/customer/shipments")
-def list_shipments():
-     with SessionLocal() as session:
-        user = session.scalar(select(User).where(User.username == "roei666"))
+def list_shipments(user: CurrentUser):
+    with SessionLocal() as session:
         shipments = session.scalars(
             select(Shipment).where(Shipment.user_id == user.id).order_by(Shipment.created_at.desc())
         ).all()
         return {"shipments": [{"requestId": str(s.id), "status": s.status} for s in shipments]}   
 
 @app.get("/customer/shipments/{shipment_id}")
-def get_shipment(shipment_id: uuid.UUID):
+def get_shipment(shipment_id: uuid.UUID, user: CurrentUser):
     with SessionLocal() as session:
-        user = session.scalar(select(User).where(User.username == "roei666"))
         shipment = session.get(Shipment, shipment_id)
         if shipment is None or shipment.user_id != user.id:
             raise HTTPException(status_code=404, detail="Shipment not found")
-         
+
         options = session.scalars(select(Option).where(Option.shipment_id == shipment.id)).all()
         return {
             "requestId": str(shipment.id),
@@ -127,12 +148,11 @@ def get_shipment(shipment_id: uuid.UUID):
 
 
 @app.post("/customer/shipments/{id}/approve")
-def approve(id: uuid.UUID, request: ApproveRequest):
+def approve(id: uuid.UUID, request: ApproveRequest, user: CurrentUser):
     with SessionLocal() as session:
-        user = session.scalar(select(User).where(User.username == "roei666"))
         shipment = session.get(Shipment, id)
         if shipment is None or shipment.user_id != user.id:
-                raise HTTPException(status_code=404, detail="Shipment not found")
+            raise HTTPException(status_code=404, detail="Shipment not found")
         if shipment.status != "options_ready":
             raise HTTPException(status_code=409, detail="Shipment is not waiting for approval")
 
