@@ -22,7 +22,6 @@ struct ShippingApp: App {
         // NetworkLayer reads it, RootView watches it.
         let keychain = KeychainService()
         let network = NetworkLayer(keychain: keychain)
-        let hello = HelloService(network: network)   // always the real server
         let auth: AuthServiceProtocol
         let shipmentService: ShipmentServiceProtocol
 
@@ -35,7 +34,7 @@ struct ShippingApp: App {
         }
 
         self.keychain = keychain
-        _loginViewModel = State(initialValue: LoginViewModel(auth: auth, keychain: keychain, hello: hello))
+        _loginViewModel = State(initialValue: LoginViewModel(auth: auth, keychain: keychain))
         _homeViewModel = State(initialValue: HomeViewModel(service: shipmentService, keychain: keychain))
     }
 

@@ -40,13 +40,15 @@ final class NewShipmentViewModel: Identifiable {
 
     var isSubmitting: Bool { phase == .submitting }
 
-    init(service: ShipmentServiceProtocol, keychain: KeychainServiceProtocol, now: Date = .now, calendar: Calendar = .current) {
+    // prefill: start from a filled-in sample form (Debug builds, for testing).
+    init(service: ShipmentServiceProtocol, keychain: KeychainServiceProtocol, prefill: Bool = false,
+         now: Date = .now, calendar: Calendar = .current) {
         self.service = service
         self.keychain = keychain
         let today = calendar.startOfDay(for: now)
         self.earliestDeliveryDate = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let defaultDelivery = calendar.date(byAdding: .day, value: 30, to: today) ?? today
-        self.form = ShipmentForm(deliveryDate: defaultDelivery)
+        self.form = prefill ? .sample(deliveryDate: defaultDelivery) : ShipmentForm(deliveryDate: defaultDelivery)
     }
 
     func isInvalid(_ field: String) -> Bool {

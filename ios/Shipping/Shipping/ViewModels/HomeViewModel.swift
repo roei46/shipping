@@ -60,7 +60,12 @@ final class HomeViewModel {
     }
 
     func startNewShipment() {
-        newShipment = NewShipmentViewModel(service: service, keychain: keychain)
+        #if DEBUG
+        let prefill = true    // filled-in form while testing
+        #else
+        let prefill = false
+        #endif
+        newShipment = NewShipmentViewModel(service: service, keychain: keychain, prefill: prefill)
     }
 
     func logout() {

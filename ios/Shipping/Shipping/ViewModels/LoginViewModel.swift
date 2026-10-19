@@ -17,25 +17,14 @@ final class LoginViewModel {
 
     private let auth: AuthServiceProtocol
     private let keychain: KeychainServiceProtocol
-    private let hello: HelloServiceProtocol
 
     var canSubmit: Bool {
         !username.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty && !isLoading
     }
 
-    init(auth: AuthServiceProtocol, keychain: KeychainServiceProtocol, hello: HelloServiceProtocol) {
+    init(auth: AuthServiceProtocol, keychain: KeychainServiceProtocol) {
         self.auth = auth
         self.keychain = keychain
-        self.hello = hello
-    }
-
-    // Server check — runs once when the screen starts.
-    func sayHello() async {
-        do {
-            print("hello:", try await hello.hello())
-        } catch {
-            print("hello failed:", error)
-        }
     }
 
     func login() async {

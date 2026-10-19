@@ -32,7 +32,6 @@ protocol EnumProtocol {
 }
 
 enum EndPoint: EnumProtocol {
-    case hello
     case login(username: String, password: String)
     case shipments
     case createShipment(request: ShipmentRequest)
@@ -47,7 +46,7 @@ enum EndPoint: EnumProtocol {
 
     var method: HTTPMethod {
         switch self {
-        case .hello, .shipments, .shipment:
+        case .shipments, .shipment:
             .get
         case .login, .createShipment, .approve, .registerDevice:
             .post
@@ -56,8 +55,6 @@ enum EndPoint: EnumProtocol {
 
     var path: String {
         switch self {
-        case .hello:
-            "/hello"
         case .login:
             "/customer/login"
         case .shipments, .createShipment:
@@ -71,10 +68,10 @@ enum EndPoint: EnumProtocol {
         }
     }
 
-    // Every call except hello and login sends the token.
+    // Every call except login sends the token.
     var requiresAuth: Bool {
         switch self {
-        case .hello, .login:
+        case .login:
             false
         default:
             true
@@ -92,7 +89,7 @@ enum EndPoint: EnumProtocol {
             ApproveBody(optionId: optionId)
         case .registerDevice(let deviceToken):
             DeviceBody(deviceToken: deviceToken)
-        case .hello, .shipments, .shipment:
+        case .shipments, .shipment:
             nil
         }
     }

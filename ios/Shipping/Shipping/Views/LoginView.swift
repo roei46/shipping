@@ -57,14 +57,10 @@ struct LoginView: View {
         .onSubmit {
             Task { await viewModel.login() }
         }
-        .task {
-            await viewModel.sayHello()
-        }
     }
 }
 
 #Preview {
     LoginView(viewModel: LoginViewModel(auth: MockAuthService(),
-                                        keychain: InMemoryKeychainService(),
-                                        hello: MockHelloService()))
+                                        keychain: InMemoryKeychainService()))
 }

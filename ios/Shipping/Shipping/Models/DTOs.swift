@@ -7,12 +7,6 @@
 
 import Foundation
 
-// MARK: - Hello
-
-struct HelloDTO: Decodable {
-    let message: String
-}
-
 // MARK: - Login
 
 struct LoginBody: Encodable {

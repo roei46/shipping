@@ -1,14 +1,25 @@
 import uuid
 
 from celery import Celery
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from config import settings
 from db import SessionLocal
-from forwarders import FORWARDERS
+from forwarders import FORWARDERS, ForwarderError
 from llm import plan_shipment
 from models import Option, Shipment
 
 celery_app = Celery("shipping", broker=settings.redis_url)
+
+
+@retry(
+    retry=retry_if_exception_type(ForwarderError),
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(1),
+    reraise=True,
+)
+def get_quote(forwarder, mode, container_type):
+    return forwarder.quote(mode, container_type)
 
 
 @celery_app.task
@@ -27,11 +38,17 @@ def prepare_options(shipment_id: str):
         print("plan:", plan)
 
         quotes = []
-        
         for mode in plan.modes_to_quote:
             container_type = "uld" if mode == "air" else plan.container_type
             for forwarder in FORWARDERS:
-                quotes.append(forwarder.quote(mode, container_type))
+                try:
+                    quotes.append(get_quote(forwarder, mode, container_type))
+                except ForwarderError:
+                    print(f"{forwarder.name}: skipped after 3 tries")
+
+        if not quotes:
+            print("no quotes at all, shipment stays preparing_options")
+            return
 
         cheapest = min(quotes, key=lambda q: q.price)
         fastest = min(quotes, key=lambda q: q.estimated_arrival)

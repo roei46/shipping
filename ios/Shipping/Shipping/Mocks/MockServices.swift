@@ -27,13 +27,6 @@ final class InMemoryKeychainService: KeychainServiceProtocol {
     }
 }
 
-// For previews only — the app always calls the real server for hello.
-final class MockHelloService: HelloServiceProtocol {
-    func hello() async throws -> String {
-        "hello world (mock)"
-    }
-}
-
 final class MockAuthService: AuthServiceProtocol {
     // Any username works. Password "wrong" simulates a 401.
     func login(username: String, password: String) async throws -> String {

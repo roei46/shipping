@@ -14,11 +14,18 @@ class Quote(BaseModel):
     quote_ref: str
 
 
+class ForwarderError(Exception):
+    pass
+
+
 class MockForwarder:
     def __init__(self, name: str):
         self.name = name
 
     def quote(self, mode: str, container_type: str) -> Quote:
+        if random.random() < 0.3:
+            print(f"{self.name}: failed, no answer")
+            raise ForwarderError(f"{self.name} did not answer")
         if mode == "sea":
             price = random.randint(2000, 6000)
             days = random.randint(20, 35)

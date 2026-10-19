@@ -169,14 +169,6 @@ struct EndPointTests {
         #expect(endPoint.requiresAuth == false)
     }
 
-    @Test func helloIsUnauthenticatedGet() throws {
-        let request = try #require(EndPoint.hello.request)
-        #expect(request.url?.absoluteString == "http://localhost:8000/hello")
-        #expect(request.httpMethod == "GET")
-        #expect(request.httpBody == nil)
-        #expect(EndPoint.hello.requiresAuth == false)
-    }
-
     @Test func getHasNoBody() throws {
         let request = try #require(EndPoint.shipments.request)
         #expect(request.httpMethod == "GET")
@@ -327,7 +319,7 @@ struct LoginViewModelTests {
         let auth = StubAuthService()
         auth.result = .failure(NetworkError.unauthorized)
         let keychain = InMemoryKeychainService()
-        let vm = LoginViewModel(auth: auth, keychain: keychain, hello: MockHelloService())
+        let vm = LoginViewModel(auth: auth, keychain: keychain)
         vm.username = "bar"
         vm.password = "nope"
         await vm.login()
@@ -338,7 +330,7 @@ struct LoginViewModelTests {
 
     @Test func successSavesTokenFromServer() async {
         let keychain = InMemoryKeychainService()
-        let vm = LoginViewModel(auth: StubAuthService(), keychain: keychain, hello: MockHelloService())
+        let vm = LoginViewModel(auth: StubAuthService(), keychain: keychain)
         vm.username = "bar"
         vm.password = "secret"
         await vm.login()
