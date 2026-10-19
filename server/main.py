@@ -8,7 +8,7 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 
 from db import SessionLocal
-from models import Shipment, User
+from models import Option, Shipment, User
 from security import verify_password
 from worker import prepare_options
 
@@ -105,7 +105,22 @@ def get_shipment(shipment_id: uuid.UUID):
         shipment = session.get(Shipment, shipment_id)
         if shipment is None or shipment.user_id != user.id:
             raise HTTPException(status_code=404, detail="Shipment not found")
-        return {"requestId": str(shipment.id), "status": shipment.status, "options": []}
+         
+        options = session.scalars(select(Option).where(Option.shipment_id == shipment.id)).all()
+        return {
+            "requestId": str(shipment.id),
+            "status": shipment.status,
+            "options": [
+                {
+                    "optionId": str(o.id),
+                    "mode": o.mode,
+                    "price": o.price,
+                    "estimatedArrival": o.estimated_arrival.isoformat(),
+                    "containerType": o.container_type,
+                }
+                for o in options
+            ],
+        }
 
 
 @app.post("/customer/shipments/{id}/approve")
@@ -118,6 +133,11 @@ def approve(id: uuid.UUID, request: ApproveRequest):
         if shipment.status != "options_ready":
             raise HTTPException(status_code=409, detail="Shipment is not waiting for approval")
 
+        option = session.get(Option, request.option_id)
+        if option is None or option.shipment_id != shipment.id:
+            raise HTTPException(status_code=404, detail="Option not found")
+
+        shipment.selected_option_id = option.id
         shipment.status = "approved"
         session.commit()
         return {"requestId": str(shipment.id), "status": shipment.status}

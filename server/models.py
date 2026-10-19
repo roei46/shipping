@@ -23,6 +23,7 @@ class Shipment(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(default="preparing_options")
+    selected_option_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("options.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     quantity: Mapped[int]
@@ -41,3 +42,16 @@ class Shipment(Base):
     insurance_by: Mapped[str]
     local_trucking_by: Mapped[str]
     incoterms: Mapped[str]
+
+
+class Option(Base):
+    __tablename__ = "options"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    shipment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("shipments.id"))
+    forwarder: Mapped[str]
+    mode: Mapped[str]
+    price: Mapped[float]
+    estimated_arrival: Mapped[date]
+    container_type: Mapped[str]
+    quote_ref: Mapped[str]    

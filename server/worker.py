@@ -4,8 +4,9 @@ from celery import Celery
 
 from config import settings
 from db import SessionLocal
+from forwarders import FORWARDERS
 from llm import plan_shipment
-from models import Shipment
+from models import Option, Shipment
 
 celery_app = Celery("shipping", broker=settings.redis_url)
 
@@ -24,6 +25,29 @@ def prepare_options(shipment_id: str):
         )
         plan = plan_shipment(details)
         print("plan:", plan)
+
+        quotes = []
+        
+        for mode in plan.modes_to_quote:
+            container_type = "uld" if mode == "air" else plan.container_type
+            for forwarder in FORWARDERS:
+                quotes.append(forwarder.quote(mode, container_type))
+
+        cheapest = min(quotes, key=lambda q: q.price)
+        fastest = min(quotes, key=lambda q: q.estimated_arrival)
+        chosen = [cheapest] if cheapest == fastest else [cheapest, fastest]
+
+        for q in chosen:
+            session.add(Option(
+                shipment_id=shipment.id,
+                forwarder=q.forwarder,
+                mode=q.mode,
+                price=q.price,
+                estimated_arrival=q.estimated_arrival,
+                container_type=q.container_type,
+                quote_ref=q.quote_ref,
+            ))
+
         shipment.status = "options_ready"
         session.commit()
         # TODO: send the push "Your options are ready" (Firebase).
