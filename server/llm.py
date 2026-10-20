@@ -1,7 +1,7 @@
 from typing import Literal
 
 import anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config import settings
 
@@ -20,7 +20,7 @@ Never give prices or dates."""
 
 
 class ShippingPlan(BaseModel):
-    modes_to_quote: list[Literal["sea", "air"]]
+    modes_to_quote: list[Literal["sea", "air"]] = Field(min_length=1)
     consolidation: Literal["FCL", "LCL"] | None
     container_type: Literal["20ft", "40ft", "40ft_reefer", "uld"]
     reason: str

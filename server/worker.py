@@ -1,12 +1,15 @@
 import uuid
 
+import anthropic
+import pydantic
+import sentry_sdk
 from celery import Celery, signals
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from config import settings
 from db import SessionLocal
 from forwarders import FORWARDERS, ForwarderError
-from llm import plan_shipment
+from llm import ShippingPlan, plan_shipment
 from models import Option, Shipment
 from sentry_setup import init_sentry
 
@@ -28,8 +31,24 @@ def get_quote(forwarder, mode, container_type):
     return forwarder.quote(mode, container_type)
 
 
-@celery_app.task
-def prepare_options(shipment_id: str):
+def fallback_plan(shipment) -> ShippingPlan:
+    container = "40ft_reefer" if shipment.temperature_control else "40ft"
+    return ShippingPlan(
+        modes_to_quote=[shipment.shipping_mode],
+        consolidation=None,
+        container_type=container,
+        reason="Fallback: LLM plan unavailable",
+    )
+
+
+def is_plan_valid(shipment, plan) -> bool:
+    if shipment.temperature_control and "sea" in plan.modes_to_quote:
+        return plan.container_type == "40ft_reefer"
+    return True
+
+
+@celery_app.task(bind=True, acks_late=True, max_retries=3)
+def prepare_options(self, shipment_id: str):
     with SessionLocal() as session:
         shipment = session.get(Shipment, uuid.UUID(shipment_id))
         details = (
@@ -40,7 +59,16 @@ def prepare_options(shipment_id: str):
             f"temperature control: {shipment.temperature_control}, "
             f"preferred mode: {shipment.shipping_mode}"
         )
-        plan = plan_shipment(details)
+        try:
+            plan = plan_shipment(details)
+        except (anthropic.APIError, pydantic.ValidationError) as e:
+            sentry_sdk.capture_exception(e)
+            print("LLM plan failed, using fallback plan:", e)
+            plan = fallback_plan(shipment)
+
+        if not is_plan_valid(shipment, plan):
+            print("plan fixed: temperature control needs a reefer container")
+            plan.container_type = "40ft_reefer"
         print("plan:", plan)
 
         quotes = []
@@ -53,8 +81,8 @@ def prepare_options(shipment_id: str):
                     print(f"{forwarder.name}: skipped after 3 tries")
 
         if not quotes:
-            print("no quotes at all, shipment stays preparing_options")
-            return
+            print("no quotes at all, retrying the whole job in 60 seconds")
+            raise self.retry(countdown=60)
 
         cheapest = min(quotes, key=lambda q: q.price)
         fastest = min(quotes, key=lambda q: q.estimated_arrival)
