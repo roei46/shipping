@@ -1,0 +1,29 @@
+services:
+  server:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://shipping:shipping@db:5432/shipping
+      REDIS_URL: redis://redis:6379/0
+      SENTRY_ENVIRONMENT: docker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: shipping
+      POSTGRES_PASSWORD: shipping
+      POSTGRES_DB: shipping
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shipping"]
+      interval: 2s
+      retries: 15
+
+  redis:
+    image: redis:7
